@@ -1,44 +1,57 @@
-usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>]
-           [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]
-           [-p | --paginate | -P | --no-pager] [--no-replace-objects] [--bare]
-           [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
-           [--config-env=<name>=<envvar>] <command> [<args>]
+# Отчёт по проделанной работе
 
-These are common Git commands used in various situations:
+## Запуск
+Задание retry_specific_error запускается из корневой дикертории командой
+```
+python3 ./retry_specific_error/main.py
+```
+Задание label_bug запускается из корневой директории командой
+```
+python3 ./label_bug/main.py
+```
 
-start a working area (see also: git help tutorial)
-   clone     Clone a repository into a new directory
-   init      Create an empty Git repository or reinitialize an existing one
+## Задача 1. retry_specific_error
+Для реализации задачи был добавлин в декоратор с параметрами дополнительный параметр exceptions, который находится в файле [retry_decorator.py](retry_specific_error/retry_decorator.py). По умолчанию он равен None и в таком случае к данному параметру присваивается общий объект ошибки Exception. Если передан картеж из возможных ошибок, то в цикле будут обрабатываться только они. В случае возникновения непредвиденной ошибка она сразу выкидывается наверх.<br/> 
+Также в файле [main.py](retry_specific_error/main.py) находится пример работы этого декоратора на примере функции, которая рандомно генерирует ошибки.
+### Альтернативное решение
+Возможно в некоторых случаях было бы уместно даже при условии появления непредвиденной ошибки завершать все попытки в цикле. Для этого можно сделать список unhandled_exceptions и только в конце выбросить наверх исключение:
+```
+unhandled_exceptions = []
 
-work on the current change (see also: git help everyday)
-   add       Add file contents to the index
-   mv        Move or rename a file, a directory, or a symlink
-   restore   Restore working tree files
-   rm        Remove files from the working tree and from the index
+            for i in range(attempts):
+                try:
+                    return func(self, *args, **kwargs)
+                except exceptions as e:
+                    print(f"Попытка № {i + 1}")
+                    print(f"Исключение: {e}. Повторная попытка...")
+                    time.sleep(delay)
+                except Exception as e:
+                    unhandled_exceptions.append(e)
 
-examine the history and state (see also: git help revisions)
-   bisect    Use binary search to find the commit that introduced a bug
-   diff      Show changes between commits, commit and working tree, etc
-   grep      Print lines matching a pattern
-   log       Show commit logs
-   show      Show various types of objects
-   status    Show the working tree status
+            if unhandled_exceptions:
+                raise unhandled_exceptions[0]
+```
+Данная реализация возможна если этот декоратор будет работать с функциями, которые обрабатывают, например, сетивые запрос, но данная реализация не соответсвует дз
 
-grow, mark and tweak your common history
-   branch    List, create, or delete branches
-   commit    Record changes to the repository
-   merge     Join two or more development histories together
-   rebase    Reapply commits on top of another base tip
-   reset     Reset current HEAD to the specified state
-   switch    Switch branches
-   tag       Create, list, delete or verify a tag object signed with GPG
+## Задача 2. label_bug
+Для реализации данной задачи был изменён метод add_labels_to_pull_request и добавлен remove_non_compliant_labels в файле [label_manager.py](label_bug/label_manager.py). В методе add_labels_to_pull_request добавлен вызов функции remove_non_compliant_labels в которую передаётся набор устанавливаемых меток и сам пулл-реквест. Метод remove_non_compliant_labels удаляет метки из пулл-реквеста, которые не соответствуют новому списку меток и имеют флаг removable. Также к классу PullRequest был добавлен метод remove_labels, который выполняет удаление меток из конкретного пулл-реквеста. Сделано был это из логических соображений, так как у класса есть метод add_labels, но нет метода remove_labels. <br/> 
+В файле [mock_class.py](label_bug/mock_class.py) хранятся классы, которые были написаны для проверки работоспособности и тестирования кода.<br/> 
+В файле [main.py](label_bug/main.py) показательный пример работы программы, тепере метки удаляются не полностью, а только те которые не нужно ставить при вызове функции добавления
+### Альтернативное решение
+Можно не создавать новый метод для класса PullRequest, а оставить старую реализацию
+```
+        original_number = len(pull_request_labels)
+        for label_data in AVAILABLE_LABELS.values():
+            if label_data.name in pull_request_labels and label_data.removable:
+                if label_data.name not in keys:
+                    pull_request_labels.remove(label_data.name)
 
-collaborate (see also: git help workflows)
-   fetch     Download objects and refs from another repository
-   pull      Fetch from and integrate with another repository or a local branch
-   push      Update remote refs along with associated objects
+        if original_number != len(pull_request_labels):
+            pull_request.set_labels(pull_request_labels)
+```
+Также вызов функции remove_non_compliant_labels можно делать не в функции add_labels_to_pull_request, а в классе отвечающего за проверку пулл-реквеста в методе set_conclusion.
 
-'git help -a' and 'git help -g' list available subcommands and some
-concept guides. See 'git help <command>' or 'git help <concept>'
-to read about a specific subcommand or concept.
-See 'git help git' for an overview of the system.
+## Примечания 
+Для проверки работоспосбности кода и его тестирования были добавлены мок классы, в которые был добавлен только необходимый функционал для работоспособности
+кода. Также в код не относящийся на прямую к решению задач были внесены небольшие изменения, такие как замена common_log на обычный print чтобы видеть 
+информацию в терминале.
