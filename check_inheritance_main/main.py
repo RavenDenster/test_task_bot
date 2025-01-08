@@ -51,22 +51,16 @@ def time_comparison(matching_branches, all_commits, alert_commit, new_alert_comm
 
     for branch in matching_branches:
         if branch != BRANCH:
-            index_alert_other = (all_commits[branch].index(alert_commit) if len(matching_branches) <= 1 else all_commits[branch].index(new_alert_commit))
+            index_alert_other = all_commits[branch].index(alert_commit) if len(matching_branches) <= 1 else all_commits[branch].index(new_alert_commit)
+
             if index_alert_other == 0:
                 trig_end = True
 
             prev_alert_other = all_commits[branch][index_alert_other - 1]
-            branch_time = get_branch_creation_time(branch, prev_alert_other)
-            time_create_matching_branch[branch] = branch_time
-            continue
-
-        if len(matching_branches) <= 1:
-            branch_time = get_branch_creation_time(branch, prev_alert)
         else:
-            new_index_alert = all_commits[branch].index(new_alert_commit)
-            new_prev_alert = all_commits[branch][new_index_alert - 1]
-            branch_time = get_branch_creation_time(branch, new_prev_alert)
+            prev_alert_other = prev_alert if len(matching_branches) <= 1 else all_commits[branch][all_commits[branch].index(new_alert_commit) - 1]
 
+        branch_time = get_branch_creation_time(branch, prev_alert_other)
         time_create_matching_branch[branch] = branch_time
 
     return time_create_matching_branch, trig_end
